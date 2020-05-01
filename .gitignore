@@ -1,3 +1,10 @@
+# PyCharm
+.idea/
+
+# Unity Environments
+Reacher_Linux/
+Reacher20_Linux/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
