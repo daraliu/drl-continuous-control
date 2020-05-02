@@ -22,7 +22,7 @@ def training(
         num_updates: int = 20,
         n_episodes: int = 2000,
         mean_score_threshold: float = 30.0,
-        max_t: int = 1000000,
+        max_t: int = 1000,
         eps_start: float = 1.0,
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
@@ -95,15 +95,15 @@ def training(
         seed=agent_seed)
 
     scores = train_agent(
-        env,
-        agent,
-        n_episodes,
-        mean_score_threshold,
-        max_t,
-        eps_start,
-        eps_end,
-        eps_decay,
-        logging_freq)
+        env=env,
+        agent=agent,
+        n_episodes=n_episodes,
+        mean_score_threshold=mean_score_threshold,
+        max_t=max_t,
+        eps_start=eps_start,
+        eps_end=eps_end,
+        eps_decay=eps_decay,
+        logging_freq=logging_freq)
 
     logger.info(f'Saving actor network model weights to {str(path_weights_actor)}')
     torch.save(agent.actor_local.state_dict(), str(path_weights_actor))
@@ -141,7 +141,7 @@ def train_agent(
         agent: agents.DDPGAgent,
         n_episodes: int = 200,
         mean_score_threshold: float = 30.0,
-        max_t: int = 1000000,
+        max_t: int = 1000,
         eps_start: float = 1.0,
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
