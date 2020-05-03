@@ -1,7 +1,7 @@
 import random
 import copy
 from collections import deque
-from typing import Iterable, Any, List, NamedTuple, Tuple
+from typing import Iterable, Any, List, NamedTuple, Tuple, Dict
 
 import numpy as np
 import torch
@@ -21,7 +21,7 @@ class DDPGAgent:
             self,
             state_size: int,
             action_size: int,
-            buffer_size: int = 1_000_000,
+            buffer_size: int = 100_000,
             batch_size: int = 128,
             gamma_discount_factor: float = 0.99,
             tau_soft_update: float = 1e-3,
@@ -30,6 +30,9 @@ class DDPGAgent:
             l2_weight_decay: float = 1e-4,
             update_network_every: int = 20,
             num_updates: int = 10,
+            ou_noise_mu: float = 0.0,
+            ou_noise_theta: float = 0.15,
+            ou_noise_sigma: float = 0.1,
             seed: int = 0):
         """
 
@@ -51,10 +54,18 @@ class DDPGAgent:
             Learning rate for Actor network
         learning_rate_critic
             Learning rate for Critic network
+        l2_weight_decay
+            Weight decay for critic optimizer
         update_network_every
             Update network weight every `update_network_every` time steps
         num_updates
             Number of simultaneous updates
+        ou_noise_mu
+            Ornstein-Uhlenbeck process mu parameter
+        ou_noise_theta
+            Ornstein-Uhlenbeck process theta parameter
+        ou_noise_sigma
+            Ornstein-Uhlenbeck process sigma parameter
         seed
             Random seed
         """
@@ -64,8 +75,14 @@ class DDPGAgent:
         self.batch_size = batch_size
         self.gamma_discount_factor = gamma_discount_factor
         self.tau_soft_update = tau_soft_update
+        self.learning_rate_actor = learning_rate_actor
+        self.learning_rate_critic = learning_rate_critic
+        self.l2_weight_decay = l2_weight_decay
         self.update_network_every = update_network_every
         self.num_updates = num_updates
+        self.ou_noise_mu = ou_noise_mu
+        self.ou_noise_theta = ou_noise_theta
+        self.ou_noise_sigma = ou_noise_sigma
         self.seed = random.seed(seed)
 
         # Actor Network (w/ Target Network)
@@ -82,13 +99,35 @@ class DDPGAgent:
             weight_decay=l2_weight_decay)
 
         # Noise process
-        self.noise = OUNoise(action_size, seed)
+        self.noise = OUNoise(action_size, seed, ou_noise_mu, ou_noise_theta, ou_noise_sigma)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, buffer_size, batch_size, seed)
 
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        return {
+            'action_size': self.action_size,
+            'state_size': self.state_size,
+            'buffer_size': self.buffer_size,
+            'batch_size': self.batch_size,
+            'gamma_discount_factor': self.gamma_discount_factor,
+            'tau_soft_update': self.tau_soft_update,
+            'learning_rate_actor': self.learning_rate_actor,
+            'learning_rate_critic': self.learning_rate_critic,
+            'l2_weight_decay': self.l2_weight_decay,
+            'update_network_every': self.update_network_every,
+            'num_updates': self.num_updates,
+            'actor_local': self.actor_local.metadata,
+            'critic_local': self.critic_local.metadata,
+            'ounoise_mu': self.ou_noise_mu,
+            'ounoise_theta': self.ou_noise_theta,
+            'ounoise_sigma': self.ou_noise_sigma,
+            'seed': self.seed,
+        }
 
     def step(self, states, actions, rewards, next_states, dones):
         # Save experience in replay memory
@@ -107,6 +146,7 @@ class DDPGAgent:
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
         state = torch.from_numpy(state).float().to(DEVICE)
+        state = state.unsqueeze(0)
         self.actor_local.eval()
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()

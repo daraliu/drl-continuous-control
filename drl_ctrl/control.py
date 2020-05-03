@@ -27,12 +27,13 @@ def training(
         l2_weight_decay: float = 1e-4,
         update_every: int = 20,
         num_updates: int = 10,
+        has_ou_noise: bool = True,
+        ou_noise_mu: float = 0.0,
+        ou_noise_theta: float = 0.15,
+        ou_noise_sigma: float = 0.1,
         n_episodes: int = 2000,
         mean_score_threshold: float = 30.0,
         max_t: int = 1000,
-        eps_start: float = 1.0,
-        eps_end: float = 0.01,
-        eps_decay: float = 0.995,
         agent_seed=0,
         logging_freq: int = 10):
     """
@@ -69,18 +70,20 @@ def training(
         Update weights of networks every `update_every` time steps
     num_updates
         Number of simultaneous updates
+    has_ou_noise
+        If True, Ornstein-Uhlenbeck noise is added to actions
+    ou_noise_mu
+        Ornstein-Uhlenbeck process mu parameter
+    ou_noise_theta
+        Ornstein-Uhlenbeck process theta parameter
+    ou_noise_sigma
+        Ornstein-Uhlenbeck process sigma parameter
     n_episodes
         Maximum number of episodes
     mean_score_threshold
         Threshold of mean last 100 weights to stop training and save results
     max_t:
         Maximum number of time steps per episode
-    eps_start
-        Starting value of epsilon, for epsilon-greedy action selection
-    eps_end
-        Minimum value of epsilon
-    eps_decay
-        Multiplicative factor (per episode) for decreasing epsilon
     agent_seed
         Random seed for agent epsilon-greedy policy
     logging_freq
@@ -120,6 +123,9 @@ def training(
         l2_weight_decay=l2_weight_decay,
         update_network_every=update_every,
         num_updates=num_updates,
+        ou_noise_mu=ou_noise_mu,
+        ou_noise_theta=ou_noise_theta,
+        ou_noise_sigma=ou_noise_sigma,
         seed=agent_seed)
 
     scores = train_agent(
@@ -128,9 +134,7 @@ def training(
         n_episodes=n_episodes,
         mean_score_threshold=mean_score_threshold,
         max_t=max_t,
-        eps_start=eps_start,
-        eps_end=eps_end,
-        eps_decay=eps_decay,
+        has_ou_noise=has_ou_noise,
         logging_freq=logging_freq)
 
     logger.info(f'Saving actor network model weights to {str(path_weights_actor)}')
@@ -155,9 +159,7 @@ def training(
         "agent": agent.metadata,
         "mean_score_threshold": mean_score_threshold,
         "max_t": max_t,
-        "eps_start": eps_start,
-        "eps_end": eps_end,
-        "eps_decay": eps_decay,
+        "has_ou_noise": has_ou_noise,
     }
 
     with open(path_metadata, "w") as f:
@@ -171,9 +173,7 @@ def train_agent(
         n_episodes: int = 200,
         mean_score_threshold: float = 30.0,
         max_t: int = 1000,
-        eps_start: float = 1.0,
-        eps_end: float = 0.01,
-        eps_decay: float = 0.995,
+        has_ou_noise: bool = True,
         logging_freq: int = 10) -> typing.List[float]:
     """
     Train agent for Unity Reacher environment and return scores.
@@ -188,14 +188,10 @@ def train_agent(
         Maximum number of episodes
     mean_score_threshold
         Threshold of mean last 100 weights to stop training and save results
-    max_t:
+    max_t
         Maximum number of time steps per episode
-    eps_start
-        Starting value of epsilon, for epsilon-greedy action selection
-    eps_end
-        Minimum value of epsilon
-    eps_decay
-        Multiplicative factor (per episode) for decreasing epsilon
+    has_ou_noise
+        If True, Ornstein-Uhlenbeck noise is added to actions
     logging_freq
         Logging frequency
 
@@ -205,7 +201,6 @@ def train_agent(
 
     scores = []
     scores_window = deque(maxlen=100)
-    eps = eps_start
 
     for i_episode in range(1, n_episodes+1):
         brain_name = env.brain_names[0]
@@ -217,7 +212,7 @@ def train_agent(
 
         for t in range(max_t):
             # choose action (for each agent)
-            actions = [agent.act(state, eps) for state in states]
+            actions = [agent.act(state, add_noise=has_ou_noise) for state in states]
 
             # take action in the environment(for each agent)
             env_info = env.step(actions)[brain_name]
@@ -244,7 +239,6 @@ def train_agent(
         scores_window.append(score)
         scores.append(score)
 
-        eps = max(eps_end, eps_decay * eps)
         if i_episode % logging_freq == 0:
             logger.info(f'\rEpisode {i_episode}\tAverage Score: {np.mean(scores_window):.2f}')
 
@@ -362,6 +356,7 @@ def demo_random(env: unityagents.UnityEnvironment) -> float:
     states = env_info.vector_observations
     num_agents = len(env_info.agents)
     scores = np.zeros(num_agents)
+    i_step = 1
     while True:
         actions = np.random.randn(num_agents, action_size)  # select an action (for each agent)
         actions = np.clip(actions, -1, 1)  # all actions between -1 and 1
@@ -371,7 +366,9 @@ def demo_random(env: unityagents.UnityEnvironment) -> float:
         scores += env_info.rewards  # update the score (for each agent)
         states = next_states  # roll over states to next time step
         if np.any(dones):  # exit loop if episode finished
+            print(f'Episode finished in {i_step} steps')
             break
+        i_step += 1
 
     score = float(np.mean(scores))
     print('Total score (averaged over agents) this episode: {}'.format(score))
