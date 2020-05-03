@@ -18,8 +18,15 @@ def training(
         env: unityagents.UnityEnvironment,
         output_dir: typing.Union[pathlib.Path, str],
         agent_type: str = "DDPG",
-        update_every: int = 1,
-        num_updates: int = 20,
+        buffer_size: int = 1_000_000,
+        batch_size: int = 128,
+        gamma_discount_factor: float = 0.99,
+        tau_soft_update: float = 1e-3,
+        learning_rate_actor: float = 1e-4,
+        learning_rate_critic: float = 3e-4,
+        l2_weight_decay: float = 1e-4,
+        update_every: int = 20,
+        num_updates: int = 10,
         n_episodes: int = 2000,
         mean_score_threshold: float = 30.0,
         max_t: int = 1000,
@@ -29,12 +36,12 @@ def training(
         agent_seed=0,
         logging_freq: int = 10):
     """
-    Train agent for Unity Banana Navigation environment and save results.
+    Train agent for Unity Reacher environment and save results.
 
-    Train a deep reinforcement learning agent to pick up yellow bananas and
-    avoid blue bananas in Unity Banana Navigation Environment and save
-    results (training scores, agent neural network model weights, metadata with hyper-parameters)
-    to provided output directory.
+    Train a deep reinforcement learning agent (Reacher) or 20 agents (Reacher20)
+    to reach surfaces of spheres with a two joint arm in Unity Environment and
+    save results (training scores, agent neural network model weights,
+    metadata with hyper-parameters) to provided output directory.
 
     Parameters
     ----------
@@ -44,8 +51,22 @@ def training(
         Path to output results output directory (scores, weights, metadata)
     agent_type
         A type of agent to train from the available ones
+    buffer_size
+        Maximum size of buffer for storing experiences
+    batch_size
+        Size of Each training batch
+    gamma_discount_factor
+        Discount factor
+    tau_soft_update
+        Interpolation parameter for soft network weight update
+    learning_rate_actor
+        Learning rate for Actor network
+    learning_rate_critic
+        Learning rate for Critic network
+    l2_weight_decay
+        Weight decay for critic optimizer
     update_every
-        Update network weight every `update_every` time steps
+        Update weights of networks every `update_every` time steps
     num_updates
         Number of simultaneous updates
     n_episodes
@@ -90,6 +111,13 @@ def training(
     agent = agents.DDPGAgent(
         state_size=state_size,
         action_size=action_size,
+        buffer_size=buffer_size,
+        batch_size=batch_size,
+        gamma_discount_factor=gamma_discount_factor,
+        tau_soft_update=tau_soft_update,
+        learning_rate_actor=learning_rate_actor,
+        learning_rate_critic=learning_rate_critic,
+        l2_weight_decay=l2_weight_decay,
         update_network_every=update_every,
         num_updates=num_updates,
         seed=agent_seed)
@@ -110,7 +138,7 @@ def training(
     logger.info(f'Actor model weights saved successfully!')
 
     logger.info(f'Saving critic network model weights to {str(path_weights_critic)}')
-    torch.save(agent.critic_local.state_dict(), str(path_weights_actor))
+    torch.save(agent.critic_local.state_dict(), str(path_weights_critic))
     logger.info(f'Critic model weights saved successfully!')
 
     logger.info(f'Saving training scores to {str(path_scores)}')
@@ -131,6 +159,7 @@ def training(
         "eps_end": eps_end,
         "eps_decay": eps_decay,
     }
+
     with open(path_metadata, "w") as f:
         json.dump(metadata, f, indent=2)
     logger.info(f'Training metadata saved successfully!')
@@ -147,19 +176,14 @@ def train_agent(
         eps_decay: float = 0.995,
         logging_freq: int = 10) -> typing.List[float]:
     """
-    Train agent for Unity Banana Navigation environment and return scores.
-
-    Train a deep reinforcement learning agent to pick up yellow bananas and
-    avoid blue bananas in Unity Banana Navigation Environment and save
-    results (training scores, agent neural network model weights, metadata with hyper-parameters)
-    to provided output directory.
+    Train agent for Unity Reacher environment and return scores.
 
     Parameters
     ----------
     env
         Unity environment
     agent
-        And instance of Deep Reinforcement Learning Agent from banana_nav.agents module
+        And instance of Deep Reinforcement Learning Agent from drl_ctrl.agents module
     n_episodes
         Maximum number of episodes
     mean_score_threshold
@@ -186,13 +210,17 @@ def train_agent(
     for i_episode in range(1, n_episodes+1):
         brain_name = env.brain_names[0]
         env_info = env.reset(train_mode=True)[brain_name]
+        agent.reset()
         states = env_info.vector_observations
         num_agents = len(env_info.agents)
         agent_scores = np.zeros(num_agents)
 
         for t in range(max_t):
-            # take action (for each agent)
+            # choose action (for each agent)
             actions = [agent.act(state, eps) for state in states]
+
+            # take action in the environment(for each agent)
+            env_info = env.step(actions)[brain_name]
 
             # get next state (for each agent)
             next_states = env_info.vector_observations
