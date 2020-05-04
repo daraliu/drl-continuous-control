@@ -18,23 +18,23 @@ def training(
         env: unityagents.UnityEnvironment,
         output_dir: typing.Union[pathlib.Path, str],
         agent_type: str = "DDPG",
-        buffer_size: int = 1_000_000,
+        buffer_size: int = 100_000,
         batch_size: int = 128,
-        gamma_discount_factor: float = 0.99,
+        gamma_discount_factor: float = 0.95,
         tau_soft_update: float = 1e-3,
-        learning_rate_actor: float = 1e-4,
-        learning_rate_critic: float = 3e-4,
-        l2_weight_decay: float = 1e-4,
-        update_every: int = 20,
-        num_updates: int = 10,
+        learning_rate_actor: float = 2e-3,
+        learning_rate_critic: float = 1e-3,
+        l2_weight_decay: float = 0.0,
+        update_every: int = 10,
+        num_updates: int = 20,
         has_ou_noise: bool = True,
         ou_noise_mu: float = 0.0,
         ou_noise_theta: float = 0.15,
         ou_noise_sigma: float = 0.1,
-        n_episodes: int = 2000,
+        n_episodes: int = 500,
         mean_score_threshold: float = 30.0,
         max_t: int = 1000,
-        agent_seed=0,
+        agent_seed=111_111,
         logging_freq: int = 10):
     """
     Train agent for Unity Reacher environment and save results.
@@ -114,6 +114,7 @@ def training(
     agent = agents.DDPGAgent(
         state_size=state_size,
         action_size=action_size,
+        num_agents=len(env_info.agents),
         buffer_size=buffer_size,
         batch_size=batch_size,
         gamma_discount_factor=gamma_discount_factor,
@@ -174,7 +175,8 @@ def train_agent(
         mean_score_threshold: float = 30.0,
         max_t: int = 1000,
         has_ou_noise: bool = True,
-        logging_freq: int = 10) -> typing.List[float]:
+        logging_freq: int = 10,
+        scores_maxlen: int = 100) -> typing.List[float]:
     """
     Train agent for Unity Reacher environment and return scores.
 
@@ -194,13 +196,15 @@ def train_agent(
         If True, Ornstein-Uhlenbeck noise is added to actions
     logging_freq
         Logging frequency
+    scores_maxlen
+        Maximum length of scores window
 
     """
 
     logger = logging.getLogger(__name__)
 
     scores = []
-    scores_window = deque(maxlen=100)
+    scores_window = deque(maxlen=scores_maxlen)
 
     for i_episode in range(1, n_episodes+1):
         brain_name = env.brain_names[0]
@@ -212,7 +216,7 @@ def train_agent(
 
         for t in range(max_t):
             # choose action (for each agent)
-            actions = [agent.act(state, add_noise=has_ou_noise) for state in states]
+            actions = agent.act(states, add_noise=has_ou_noise)
 
             # take action in the environment(for each agent)
             env_info = env.step(actions)[brain_name]
@@ -242,7 +246,7 @@ def train_agent(
         if i_episode % logging_freq == 0:
             logger.info(f'\rEpisode {i_episode}\tAverage Score: {np.mean(scores_window):.2f}')
 
-        if np.mean(scores_window) >= mean_score_threshold:
+        if len(scores_window) == scores_maxlen and np.mean(scores_window) >= mean_score_threshold:
             logger.info(
                 f'\nEnvironment solved in {i_episode-100:d} episodes!'
                 f'\tAverage Score: {np.mean(scores_window):.2f}')
