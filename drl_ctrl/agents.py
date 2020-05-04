@@ -21,15 +21,16 @@ class DDPGAgent:
             self,
             state_size: int,
             action_size: int,
+            num_agents: int,
             buffer_size: int = 100_000,
             batch_size: int = 128,
-            gamma_discount_factor: float = 0.99,
+            gamma_discount_factor: float = 0.95,
             tau_soft_update: float = 1e-3,
-            learning_rate_actor: float = 1e-4,
-            learning_rate_critic: float = 3e-4,
-            l2_weight_decay: float = 1e-4,
-            update_network_every: int = 20,
-            num_updates: int = 10,
+            learning_rate_actor: float = 2e-3,
+            learning_rate_critic: float = 1e-3,
+            l2_weight_decay: float = 0.0,
+            update_network_every: int = 10,
+            num_updates: int = 20,
             ou_noise_mu: float = 0.0,
             ou_noise_theta: float = 0.15,
             ou_noise_sigma: float = 0.1,
@@ -99,7 +100,9 @@ class DDPGAgent:
             weight_decay=l2_weight_decay)
 
         # Noise process
-        self.noise = OUNoise(action_size, seed, ou_noise_mu, ou_noise_theta, ou_noise_sigma)
+        self.noise = OUNoise(
+            (num_agents, action_size),
+            seed, ou_noise_mu, ou_noise_theta, ou_noise_sigma)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, buffer_size, batch_size, seed)
@@ -123,9 +126,9 @@ class DDPGAgent:
             'num_updates': self.num_updates,
             'actor_local': self.actor_local.metadata,
             'critic_local': self.critic_local.metadata,
-            'ounoise_mu': self.ou_noise_mu,
-            'ounoise_theta': self.ou_noise_theta,
-            'ounoise_sigma': self.ou_noise_sigma,
+            'ou_noise_mu': self.ou_noise_mu,
+            'ou_noise_theta': self.ou_noise_theta,
+            'ou_noise_sigma': self.ou_noise_sigma,
             'seed': self.seed,
         }
 
@@ -143,13 +146,12 @@ class DDPGAgent:
                     experiences = self.memory.sample()
                     self.learn(experiences, self.gamma_discount_factor)
 
-    def act(self, state, add_noise=True):
+    def act(self, states, add_noise=True):
         """Returns actions for given state as per current policy."""
-        state = torch.from_numpy(state).float().to(DEVICE)
-        state = state.unsqueeze(0)
+        states = torch.from_numpy(states).float().to(DEVICE)
         self.actor_local.eval()
         with torch.no_grad():
-            action = self.actor_local(state).cpu().data.numpy()
+            action = self.actor_local(states).cpu().data.numpy()
         self.actor_local.train()
         if add_noise:
             action += self.noise.sample()
@@ -157,6 +159,7 @@ class DDPGAgent:
 
     def reset(self):
         self.noise.reset()
+        self.t_step = 0
 
     def learn(
             self,
@@ -227,10 +230,10 @@ def _soft_update(local_model, target_model, tau):
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
+    def __init__(self, shape, seed, mu=0., theta=0.15, sigma=0.1):
         """Initialize parameters and noise process."""
         self.state = None
-        self.mu = mu * np.ones(size)
+        self.mu = mu * np.ones(shape)
         self.theta = theta
         self.sigma = sigma
         self.seed = random.seed(seed)
@@ -243,7 +246,7 @@ class OUNoise:
     def sample(self):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.random.rand(len(x))
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(*x.shape)
         self.state = x + dx
         return self.state
 
