@@ -1,0 +1,25 @@
+{
+  "agent_type": "DDPG",
+  "agent": {
+    "action_size": 4,
+    "state_size": 33,
+    "buffer_size": 1000000,
+    "batch_size": 1024,
+    "gamma_discount_factor": 0.95,
+    "tau_soft_update": 0.001,
+    "learning_rate_actor": 0.002,
+    "learning_rate_critic": 0.001,
+    "l2_weight_decay": 0,
+    "update_network_every": 10,
+    "num_updates": 20,
+    "actor_local": {},
+    "critic_local": {},
+    "ou_noise_mu": 0.0,
+    "ou_noise_theta": 0.15,
+    "ou_noise_sigma": 0.1,
+    "seed": null
+  },
+  "mean_score_threshold": 30.0,
+  "max_t": 1000,
+  "has_ou_noise": true
+}
