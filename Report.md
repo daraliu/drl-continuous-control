@@ -54,7 +54,6 @@ The following hyper parameters were used for training.
 | 10       | 128        | 100000      | 0.95                  | 10          | 0.2            | 20           | 400                 |
 | 11       | 128        | 100000      | 0.95                  | 10          | 0.1            | 20           | 50                  |
 
-There is a trade-off with `batch_size` parameter. `batch_size=1024` increase convergence significantly (see Plot of Rewards), but increase the wall-clock time required for training due to heavier gradient computations involved when compared to `batch_size=128`.
 
 ### Neural Network Model Architectures
 
@@ -80,20 +79,23 @@ here `state_size=33`, `action_size=4`, `output_size=1`
 
 ## Plot of Rewards
 
-Score for all agents
-
 ![](https://github.com/daraliu/drl-continuous-control/blob/master/training_output/tuning_results/scores_all.png)
 
-Zoomed in plot of rewards for best agents that solved the environment faster than 5 (105) episodes.
+From the scores plot of all agents we see that less frequent and fewer updates (10 updates every 20 episodes) do not solve the environment when compared to more frequent and more updates (20 updates every 10 episodes) given then fixed set of other (common) hyper parameters.
+For the former case, having lower `sigma` value (0.1 instead of 0.2) for Ornstein-Uhlenbeck noise enables the DDPG agent to solve the environment albeit in 126 (226) steps versus 0 (100) when compared to agents using other `num_updates` and `update_every` hyper parameter values.
+
 
 ![](https://github.com/daraliu/drl-continuous-control/blob/master/training_output/tuning_results/scores_best.png)
 
-Fastest training agent by episode.
+We observe a trade-off with `batch_size` parameter in the zoomed in plot of rewards for best agents that solved the environment faster than 5 (105) episodes. `batch_size=1024` increase convergence significantly (see Plot of Rewards), but increase the wall-clock time required for training due to heavier gradient computations involved when compared to `batch_size=128`.
 
 ![](https://github.com/daraliu/drl-continuous-control/blob/master/img/best_score_so_far.png)
 
+Finally, we observe that the first agent to reach the score 30.0 for a single episode can do after episode 9 and achieves average score greater than 30.0 after episode 32 of episodes encountered until that point (see Jupyter notebook [Reacher20-Continuous-Control.ipynb](https://github.com/daraliu/drl-continuous-control/blob/master/notebooks/Reacher20-Continuous-Control.ipynb)).
 
-Training of the agent done in [Reacher20-Continuous-Control.ipynb](https://github.com/daraliu/drl-continuous-control/blob/master/notebooks/Reacher20-Continuous-Control.ipynb) Jupyter notebook.
+However, both further exploration of both hyper-parameter space and measurements of time taken to solve the environment are needed to draw robust conclusions.
+
+Repeated training of the final agent is done in [Reacher20-Continuous-Control.ipynb](https://github.com/daraliu/drl-continuous-control/blob/master/notebooks/Reacher20-Continuous-Control.ipynb) Jupyter notebook.
 
 Environment was solved in 0 (100) episodes with multiple hyper-parameter sets. The best solution achieves average of  is 36.17 at 0 (100) episode.
 
