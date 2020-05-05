@@ -88,8 +88,12 @@ Zoomed in plot of rewards for best agents that solved the environment faster tha
 
 ![](https://github.com/daraliu/drl-continuous-control/blob/master/training_output/tuning_results/scores_best.png)
 
+Fastest training agent by episode.
 
-Score for every episode when training the best agent is reported in [Reacher20-Continuous-Control.ipynb](https://github.com/daraliu/drl-continuous-control/blob/master/notebooks/Reacher20-Continuous-Control.ipynb) Jupyter notebook.
+![](https://github.com/daraliu/drl-continuous-control/blob/master/img/best_score_so_far.png)
+
+
+Training of the agent done in [Reacher20-Continuous-Control.ipynb](https://github.com/daraliu/drl-continuous-control/blob/master/notebooks/Reacher20-Continuous-Control.ipynb) Jupyter notebook.
 
 Environment was solved in 0 (100) episodes with multiple hyper-parameter sets. The best solution achieves average of  is 36.17 at 0 (100) episode.
 
