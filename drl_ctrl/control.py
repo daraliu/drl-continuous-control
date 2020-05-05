@@ -284,7 +284,7 @@ def demo(
         state = env_info.vector_observations[0]
         state_size = len(state)
 
-        agent = agents.DDPGAgent(state_size=state_size, action_size=action_size)
+        agent = agents.DDPGAgent(state_size=state_size, action_size=action_size, num_agents=20)
         agent.actor_local.load_state_dict(torch.load(path_util.mk_path_weights_actor(dir_model)))
         agent.critic_local.load_state_dict(torch.load(path_util.mk_path_weights_critic(dir_model)))
 
@@ -317,7 +317,7 @@ def demo_trained(env: unityagents.UnityEnvironment, agent: agents.DDPGAgent) -> 
     num_agents = len(env_info.agents)
     scores = np.zeros(num_agents)
     while True:
-        actions = [agent.act(state) for state in states]
+        actions = agent.act(states)
         # send all actions to the environment
         env_info = env.step(actions)[brain_name]
         # get next state (for each agent)
